@@ -34,91 +34,149 @@
     </div>
   </div>
 </div style="clear:both;"></div>
-    <script>
-        $(() => {
-          var socket = io(),
-              $form = $('form'),
-              $sendMsg = $('#sendMsg'),
-              $messages = $('#messages'),
-              mesElem = $messages.toArray()[0],
-              avaiPersons = []; 
+<script>
+$(() => {
+	window.global = {
+		getParameterByName: (name, url) => {
+			if (!url) url = window.location.href;
+			name = name.replace(/[\[\]]/g, "\\$&");
+			var regex = new RegExp("[?&]" + name + "(=([^&#]*)|&|#|$)"),
+			results = regex.exec(url);
+			if (!results) return null;
+			if (!results[2]) return '';
+			return decodeURIComponent(results[2].replace(/\+/g, " "));
+		}
+	};
 
 
-        $messages.height($('body').height() - $form.height());
-        var currentHeight = $(window).height() - $form.height() - 10;
-        $messages.height(currentHeight);
-        $messages.css('max-height', currentHeight);
-         
-        const scrollToBot = () => {
-              window.setTimeout(() => {
-                  var scrollTop = mesElem.scrollTop,
-                      scrollHeight = mesElem.scrollHeight;
-                      if(scrollHeight > scrollTop && scrollHeight > currentHeight) {
-                      mesElem.scrollTop = scrollHeight;
-                      $form.focus();
-                    }
-                
-                }, 1000);
-        }
+	var app = (function() {
 
-//        window.setInterval(() => {
-//            scrollToBot();
-//            }, 5000);
-
-        $(window).on('resize', () => {
-          currentHeight = $(window).height() - $form.height();
-          $messages.height(currentHeight);
-          $messages.css('max-height', currentHeight);
-          
-          });
-
-          $form.submit(() => {
-              socket.emit('chat message', $sendMsg.val());
-              var $li = $('<li style="color: purple;"></li>').text('Me: ' + $sendMsg.val());
-              $messages.append($li);
-              $sendMsg.val('');
-              scrollToBot();
-              return false;
-              });
-
-        socket.on('global message', data => {
-            var color = data.level === "WARNING"
-                        ? "yellow"
-                        : data.level === "ERROR"
-                          ? "red"
-                          : "green";
-            var $msg = $('<li style="color:'+color+'"></li>').text(data.user + ': ' +
-              data.msg );
-            $messages.append($msg);
-            scrollToBot();
-            });
-
-        socket.on('chat message', msg => {
-            var $li = $('<li></li>').text(msg.user + ': ' + msg.msg);
-            $messages.append($li);
-            scrollToBot();
-            });
-        socket.on('info', data => {
-            $('#your-ip').text($('#your-ip').text() + ' ' + data.ip);
-            $('#your-name').text($('#your-name').text() + ' ' +
-              data.nickname);
-            })
-
-        
-        socket.on('add avai persons', person => {
-          if(avaiPersons.indexOf(person) == -1) {
-            avaiPersons.push(person);
-            avaiPersons.sort();
-            $('#avai-person').append(avaiPersons.map(p => {
-                  return '<div>' + person + '</div>'
-                  }).join(''));
-          } 
+		var socket = io(),
+		$form = $('form'),
+		$sendMsg = $('#sendMsg'),
+		$messages = $('#messages'),
+		mesElem = $messages.toArray()[0],
+		avaiPersons = [], 
+		currentHeight,
+		user = {};
 
 
-          });
-        });
 
-    </script>
+		const scrollToBot = () => {
+			window.setTimeout(() => {
+				var scrollTop = mesElem.scrollTop,
+				scrollHeight = mesElem.scrollHeight;
+				if(scrollHeight > scrollTop && scrollHeight > currentHeight) {
+					mesElem.scrollTop = scrollHeight;
+					$form.focus();
+				}
+
+			}, 1000);
+		}
+
+		const adjustChatingArea = () => {
+			currentHeight = $(window).height() - $form.height() - 10;
+			$messages.height(currentHeight).css('max-height', currentHeight);
+
+			$(window).on('resize', () => {
+				currentHeight = $(window).height() - $form.height();
+				$messages.height(currentHeight).css('max-height', currentHeight);
+			});
+		}
+
+
+		const getColorFrom = (level) =>  {
+			return  typeof level === 'undefined'
+				? 'black'
+				: level === "WARNING"
+					? "yellow"
+					: level === "ERROR"
+						? "red"
+						: level === "SELF"
+							? "purple"
+							: "green";
+		}
+						
+		/**
+		 * @data = {
+		 *		level: 'WARNING', // NORMAL, ERROR, SELF
+		 *		user: 'xxx', //user name
+		 *		msg: 'content'
+		 *	}
+		 */
+		const buildMsg = (data) => {
+			var color = getColorFrom(data.level);
+			return  $('<li style="color: '+color+';"></li>').text(data.user + ': ' + data.msg);
+		}
+
+		const showNewMsg = (msg) => $messages.append(buildMsg(msg));
+
+		const init = () => {
+			user.name = window.global.getParameterByName('name');
+			user.room = window.global.getParameterByName('room');
+
+			if(user.name && user.room) {
+				socket.emit('info', user);
+			}
+
+			$form.submit(() => {
+				var msg = $sendMsg.val(),
+					data = {
+						level: 'SELF',
+						user: 'Me',
+						msg: msg
+					};
+
+				socket.emit('chat message', $sendMsg.val());
+				showNewMsg(data);
+				$sendMsg.val('');
+				scrollToBot();
+				return false;
+			});
+
+			socket.on('global message', data => {
+				showNewMsg(data);
+				scrollToBot();
+			});
+
+			socket.on('chat message', data => {
+				showNewMsg(data);
+				scrollToBot();
+			});
+
+			socket.on('info', data => {
+				$('#your-ip').text($('#your-ip').text() + ' ' + data.ip);
+				$('#your-name').text($('#your-name').text() + ' ' +
+						data.nickname);
+			})
+
+
+			socket.on('add avai persons', person => {
+				if(avaiPersons.indexOf(person) == -1) {
+					avaiPersons.push(person);
+					avaiPersons.sort();
+					$('#avai-person').append(avaiPersons.map(p => {
+						return '<div>' + person + '</div>'
+					}).join(''));
+				} 
+
+
+			});
+
+			adjustChatingArea();
+
+		}
+
+		return {
+			init: init
+		}
+	})();
+
+	app.init();
+
+});
+
+</script>
   </body>
 
 </html>
