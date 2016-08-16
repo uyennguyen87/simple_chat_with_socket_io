@@ -1,0 +1,18 @@
+{
+  "name": "@3dexpress/my_simple_chat_with_socket_io",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Nguyen Cong Uyen <uyen.nguyen.87@hotmail.com>",
+  "license": "MIT",
+  "dependencies": {
+    "express": "4.14.0",
+    "socket.io": "1.4.8"
+  },
+  "devDependencies": {
+    "jquery": "3.1.0"
+  }
+}

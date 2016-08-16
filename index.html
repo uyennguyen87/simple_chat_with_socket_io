@@ -1,0 +1,124 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Socket.IO chat</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { font: 13px Helvetica, Arial; }
+      form { background: #000; padding: 3px; position: fixed; bottom: 0; width: 100%; }
+      form input { border: 0; padding: 10px; width: 90%; margin-right: .5%; }
+      form button { width: 9%; background: rgb(130, 224, 255); border: none; padding: 10px; }
+      #messages { list-style-type: none; margin: 0; padding: 0; overflow-y:auto; }
+      #messages li { padding: 5px 10px; }
+      #messages li:nth-child(odd) { background: #eee; }
+      #main {width: 75%; float:left; border: 1px solid; border-radius: 3px;}
+      #info {width: 20%; float: right;}
+    </style>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/js/jquery.min.js"></script>
+  </head>
+  <body>
+  <div id="main">
+    <ul id="messages"></ul>
+    <form action="">
+      <input id="sendMsg" autocomplete="off" /><button>Send</button>
+    </form>
+  </div>
+  <div id="info">
+    <div id="you">
+      <h5 id="your-ip">Your IP: </h5>
+      <h5 id="your-name">Your Nickname: </h5>
+    </div>
+    <h4> Avais persons: </h4>
+    <div id="avai-person">
+    </div>
+  </div>
+</div style="clear:both;"></div>
+    <script>
+        $(() => {
+          var socket = io(),
+              $form = $('form'),
+              $sendMsg = $('#sendMsg'),
+              $messages = $('#messages'),
+              mesElem = $messages.toArray()[0],
+              avaiPersons = []; 
+
+
+        $messages.height($('body').height() - $form.height());
+        var currentHeight = $(window).height() - $form.height() - 10;
+        $messages.height(currentHeight);
+        $messages.css('max-height', currentHeight);
+         
+        const scrollToBot = () => {
+              window.setTimeout(() => {
+                  var scrollTop = mesElem.scrollTop,
+                      scrollHeight = mesElem.scrollHeight;
+                      if(scrollHeight > scrollTop && scrollHeight > currentHeight) {
+                      mesElem.scrollTop = scrollHeight;
+                      $form.focus();
+                    }
+                
+                }, 1000);
+        }
+
+//        window.setInterval(() => {
+//            scrollToBot();
+//            }, 5000);
+
+        $(window).on('resize', () => {
+          currentHeight = $(window).height() - $form.height();
+          $messages.height(currentHeight);
+          $messages.css('max-height', currentHeight);
+          
+          });
+
+          $form.submit(() => {
+              socket.emit('chat message', $sendMsg.val());
+              var $li = $('<li style="color: purple;"></li>').text('Me: ' + $sendMsg.val());
+              $messages.append($li);
+              $sendMsg.val('');
+              scrollToBot();
+              return false;
+              });
+
+        socket.on('global message', data => {
+            var color = data.level === "WARNING"
+                        ? "yellow"
+                        : data.level === "ERROR"
+                          ? "red"
+                          : "green";
+            var $msg = $('<li style="color:'+color+'"></li>').text(data.user + ': ' +
+              data.msg );
+            $messages.append($msg);
+            scrollToBot();
+            });
+
+        socket.on('chat message', msg => {
+            var $li = $('<li></li>').text(msg.user + ': ' + msg.msg);
+            $messages.append($li);
+            scrollToBot();
+            });
+        socket.on('info', data => {
+            $('#your-ip').text($('#your-ip').text() + ' ' + data.ip);
+            $('#your-name').text($('#your-name').text() + ' ' +
+              data.nickname);
+            })
+
+        
+        socket.on('add avai persons', person => {
+          if(avaiPersons.indexOf(person) == -1) {
+            avaiPersons.push(person);
+            avaiPersons.sort();
+            $('#avai-person').append(avaiPersons.map(p => {
+                  return '<div>' + person + '</div>'
+                  }).join(''));
+          } 
+
+
+          });
+        });
+
+    </script>
+  </body>
+
+</html>
